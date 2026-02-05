@@ -122,6 +122,27 @@ async def agentic_honeypot(
     - No FastAPI validation errors
     - Never crashes
     """
+    @app.get("/api/agentic-honeypot")
+async def agentic_honeypot_get(
+    _: bool = Depends(verify_api_key),
+):
+    return {
+        "status": "ok",
+        "message": "Honeypot endpoint reachable and authenticated",
+        "scam_detected": False,
+        "agent_activated": False,
+        "agent_reply": "",
+        "engagement_metrics": {
+            "turn_count": 0,
+            "engagement_duration": "0s"
+        },
+        "extracted_intelligence": {
+            "bank_accounts": [],
+            "upi_ids": [],
+            "phishing_urls": []
+        }
+    }
+
 
     # ---------------------------------------------------------------
     # Safely read body (NO 422 EVER)
