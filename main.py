@@ -1,6 +1,6 @@
 """
 Agentic Honey-Pot – AI Scam Engagement System
-Final Production-Safe FastAPI Entry Point
+Final Stable FastAPI Entry Point (GUVI + Render + Postman compatible)
 """
 
 import os
@@ -26,7 +26,6 @@ from app.response_builder import ResponseBuilder
 BASE_DIR = Path(__file__).resolve().parent
 API_KEY = os.getenv("API_KEY")
 
-# Logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -85,11 +84,11 @@ def verify_api_key(
     x_api_key: Optional[str] = Header(default=None),
     authorization: Optional[str] = Header(default=None),
 ):
-    # Hackathon tester
+    # GUVI tester
     if x_api_key and x_api_key == API_KEY:
         return True
 
-    # Postman / manual
+    # Postman / manual testing
     if authorization and authorization.startswith("Bearer "):
         token = authorization.split(" ", 1)[1]
         if token == API_KEY:
@@ -106,7 +105,7 @@ async def health():
     return {"status": "healthy", "service": "agentic-honeypot"}
 
 # -------------------------------------------------------------------
-# MAIN HONEYPOT ENDPOINT (FINAL)
+# MAIN POST ENDPOINT (NO 422 GUARANTEED)
 # -------------------------------------------------------------------
 
 @app.post("/api/agentic-honeypot")
@@ -115,46 +114,17 @@ async def agentic_honeypot(
     _: bool = Depends(verify_api_key),
 ):
     """
-    Final honeypot endpoint.
-
-    - Accepts EMPTY requests (tester)
-    - Accepts FULL JSON (evaluation)
-    - No FastAPI validation errors
-    - Never crashes
+    Main honeypot endpoint.
+    Accepts empty body (GUVI) and full JSON (real evaluation).
     """
-    @app.get("/api/agentic-honeypot")
-async def agentic_honeypot_get(
-    _: bool = Depends(verify_api_key),
-):
-    return {
-        "status": "ok",
-        "message": "Honeypot endpoint reachable and authenticated",
-        "scam_detected": False,
-        "agent_activated": False,
-        "agent_reply": "",
-        "engagement_metrics": {
-            "turn_count": 0,
-            "engagement_duration": "0s"
-        },
-        "extracted_intelligence": {
-            "bank_accounts": [],
-            "upi_ids": [],
-            "phishing_urls": []
-        }
-    }
 
-
-    # ---------------------------------------------------------------
-    # Safely read body (NO 422 EVER)
-    # ---------------------------------------------------------------
+    # Safely read JSON body
     try:
         body = await request.json()
     except Exception:
         body = None
 
-    # ---------------------------------------------------------------
-    # Case 1: Hackathon tester (no body)
-    # ---------------------------------------------------------------
+    # ---------------- GUVI / Empty request ----------------
     if not body:
         return JSONResponse(
             status_code=200,
@@ -176,13 +146,9 @@ async def agentic_honeypot_get(
             }
         )
 
-    # ---------------------------------------------------------------
-    # Case 2: Real evaluation / Postman
-    # ---------------------------------------------------------------
+    # ---------------- Real processing ----------------
     try:
         honeypot_request = HoneypotRequest(**body)
-
-        logger.info(f"Processing conversation {honeypot_request.conversation_id}")
 
         conversation_state = conversation_manager.get_or_create(
             honeypot_request.conversation_id
@@ -209,7 +175,9 @@ async def agentic_honeypot_get(
                 conversation_state=conversation_state
             )
         else:
-            agent_reply = agent.generate_neutral_response(honeypot_request.message)
+            agent_reply = agent.generate_neutral_response(
+                honeypot_request.message
+            )
 
         extracted_intelligence = intelligence_extractor.extract(
             honeypot_request.message
@@ -229,8 +197,8 @@ async def agentic_honeypot_get(
 
         return JSONResponse(status_code=200, content=response)
 
-    except Exception as e:
-        logger.error("Processing error", exc_info=True)
+    except Exception:
+        logger.exception("Unhandled processing error")
 
         return JSONResponse(
             status_code=200,
@@ -238,7 +206,7 @@ async def agentic_honeypot_get(
                 "status": "error",
                 "scam_detected": False,
                 "agent_activated": False,
-                "agent_reply": "Temporary issue. Please continue the conversation.",
+                "agent_reply": "Temporary issue. Please continue.",
                 "engagement_metrics": {
                     "turn_count": 0,
                     "engagement_duration": "0s"
@@ -252,7 +220,32 @@ async def agentic_honeypot_get(
         )
 
 # -------------------------------------------------------------------
-# Local execution
+# GET FALLBACK (GUVI COMPATIBILITY)
+# -------------------------------------------------------------------
+
+@app.get("/api/agentic-honeypot")
+async def agentic_honeypot_get(
+    _: bool = Depends(verify_api_key),
+):
+    return {
+        "status": "ok",
+        "message": "Honeypot endpoint reachable and authenticated",
+        "scam_detected": False,
+        "agent_activated": False,
+        "agent_reply": "",
+        "engagement_metrics": {
+            "turn_count": 0,
+            "engagement_duration": "0s"
+        },
+        "extracted_intelligence": {
+            "bank_accounts": [],
+            "upi_ids": [],
+            "phishing_urls": []
+        }
+    }
+
+# -------------------------------------------------------------------
+# Local execution (Render ignores this)
 # -------------------------------------------------------------------
 
 if __name__ == "__main__":
