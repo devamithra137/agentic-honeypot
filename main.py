@@ -76,14 +76,27 @@ API_KEY = os.getenv("API_KEY")
 if not API_KEY:
     logger.warning("API_KEY environment variable not set! Authentication will fail.")
 
-def verify_api_key(credentials: HTTPAuthorizationCredentials = Depends(security)) -> bool:
-    """Verify Bearer token against API_KEY environment variable"""
-    if not API_KEY:
-        logger.error("API_KEY not configured")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Server configuration error"
-        )
+from fastapi import Header
+
+def verify_api_key(
+    authorization: str = Header(default=None),
+    x_api_key: str = Header(default=None)
+):
+    # Case 1: x-api-key header (hackathon tester)
+    if x_api_key and x_api_key == API_KEY:
+        return True
+
+    # Case 2: Authorization: Bearer <key> (Postman/manual testing)
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1]
+        if token == API_KEY:
+            return True
+
+    raise HTTPException(
+        status_code=401,
+        detail="Unauthorized"
+    )
+
     
     if credentials.credentials != API_KEY:
         logger.warning(f"Invalid API key attempt")
